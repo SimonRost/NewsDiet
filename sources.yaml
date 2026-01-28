@@ -1,0 +1,53 @@
+categories:
+  world:
+    limit: 3
+    sources:
+      - type: rss
+        name: spiegel_international
+        url: https://www.spiegel.de/international/index.rss
+      - type: rss
+        name: new_york_times
+        url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+
+  germany_europe:
+    limit: 5
+    sources:
+      - type: rss
+        name: spiegel_politik
+        url: https://www.spiegel.de/politik/index.rss
+      - type: rss
+        name: sueddeutsche_politik
+        url: https://rss.sueddeutsche.de/rss/Politik
+
+  switzerland:
+    limit: 3
+    sources:
+      - type: rss
+        name: nzz_ch
+        url: https://www.nzz.ch/schweiz.rss
+      - type: rss
+        name: srf
+        url: https://www.srf.ch/news/bnf/rss/1890
+
+  eastern_switzerland:
+    limit: 3
+    sources:
+      - type: rss
+        name: tagblatt_ostschweiz
+        url: https://www.tagblatt.ch/ostschweiz.rss
+
+  custom_ch:
+    limit: 3
+    sources:
+      - type: rss
+        name: tagblatt_ostschweiz
+        url: https://www.tagblatt.ch/ostschweiz.rss
+      - type: rss
+        name: tagblatt_westthurgau
+        url: https://www.tagblatt.ch/ostschweiz/westthurgau.rss
+      - type: rss
+        name: tagblatt_kreuzlingen
+        url: https://www.tagblatt.ch/ostschweiz/kreuzlingen.rss
+
+
+

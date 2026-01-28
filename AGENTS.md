@@ -1,13 +1,12 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Current repo is minimal. The only tracked document is `PLANNING.md`, which captures product scope, categories, and runtime expectations.
-- There is no source code or tests yet. When implementation begins, place application code under `src/` (or a single top-level package like `news_diet/`) and tests under `tests/` to keep import paths and discovery simple.
-- Configuration will be managed via `sources.yaml` in the repository root.
+- Current repo contains a minimal scaffold: `src/`, `tests/`, `sources.yaml`, `requirements.txt`, `README.md`, and a GitHub Actions workflow under `.github/workflows/`.
+- Application code lives under `src/`, tests under `tests/`, and configuration in `sources.yaml` at the repository root.
 - Avoid checking in local IDE artifacts (`.idea/`) or virtualenvs (`.venv/`) once code exists; keep them ignored by Git.
 
 ## Build, Test, and Development Commands
-- No build or test commands exist yet. When code is added, document the canonical commands here (e.g., `python -m pytest`, `python -m news_diet`, or `make test`).
+- Tests run with `python -m pytest`.
 - If a virtual environment is required, standardize on `python -m venv .venv` and note activation steps in this section.
 - The main configuration file will be `sources.yaml`.
 
