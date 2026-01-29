@@ -9,7 +9,7 @@ categories:
         name: new_york_times
         url: https://rss.nytimes.com/services/xml/rss/nyt/World.xml
 
-  germany_europe:
+  germany_&_europe:
     limit: 5
     sources:
       - type: rss
@@ -36,7 +36,7 @@ categories:
         name: tagblatt_ostschweiz
         url: https://www.tagblatt.ch/ostschweiz.rss
 
-  custom_ch:
+  custom_keywords_for_eastern_switzerland:
     limit: 3
     sources:
       - type: rss
