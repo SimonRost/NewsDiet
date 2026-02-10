@@ -162,3 +162,25 @@ def test_anti_repeat_with_backfill() -> None:
     cfg = {"limit": 1, "fresh_hours": 36, "max_per_source": 2, "keywords": []}
     selected = _select_items_for_category([fresh_item, stale_item], cfg, history, now)
     assert [item["link"] for item in selected] == ["https://example.com/stale"]
+
+
+def test_require_keywords_blocks_when_missing() -> None:
+    now = datetime(2025, 1, 10, 12, 0, tzinfo=timezone.utc)
+    items = [
+        {
+            "title": "Keyword headline",
+            "teaser": "mentions peregrina",
+            "link": "https://example.com/kw",
+            "published": now - timedelta(hours=1),
+            "source": "a",
+        }
+    ]
+    cfg = {
+        "limit": 1,
+        "fresh_hours": 36,
+        "max_per_source": 1,
+        "keywords": [],
+        "require_keywords": True,
+    }
+    selected = _select_items_for_category(items, cfg, [], now)
+    assert selected == []

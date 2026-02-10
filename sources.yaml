@@ -48,6 +48,7 @@ categories:
     limit: 3
     fresh_hours: 36
     max_per_source: 2
+    require_keywords: true
     sources:
       - type: rss
         name: tagblatt_ostschweiz

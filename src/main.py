@@ -129,6 +129,9 @@ def _select_items_for_category(
     now: datetime,
 ) -> list[dict[str, Any]]:
     keywords = cfg.get("keywords", [])
+    require_keywords = cfg.get("require_keywords", False)
+    if require_keywords and not keywords:
+        return []
     if keywords:
         items = filter_by_keywords(items, keywords)
     items = dedupe_items(items)
