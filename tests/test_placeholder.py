@@ -1,9 +1,14 @@
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
+from src.config import load_config
 from src.dedupe import dedupe_items, normalize_title
+from src.feeds import _strip_html
 from src.keyword_filter import filter_by_keywords
 from src.main import _select_items_for_category
+from src.send_telegram import _MAX_MESSAGE_LEN, _escape_html, build_message_chunks
 from src.state import filter_items_against_history, title_hash, update_state_file
 
 
@@ -91,7 +96,7 @@ def test_fresh_window_with_backfill() -> None:
         },
     ]
     cfg = {"limit": 2, "fresh_hours": 24, "max_per_source": 2, "keywords": []}
-    selected = _select_items_for_category(items, cfg, [], now)
+    selected, _ = _select_items_for_category(items, cfg, [], now)
     assert [item["link"] for item in selected] == [
         "https://example.com/fresh",
         "https://example.com/old",
@@ -131,7 +136,7 @@ def test_per_source_cap_fills_from_others() -> None:
         },
     ]
     cfg = {"limit": 3, "fresh_hours": 36, "max_per_source": 1, "keywords": []}
-    selected = _select_items_for_category(items, cfg, [], now)
+    selected, _ = _select_items_for_category(items, cfg, [], now)
     sources = [item["source"] for item in selected]
     assert sources.count("a") == 1
     assert len(selected) == 3
@@ -160,7 +165,7 @@ def test_anti_repeat_with_backfill() -> None:
         }
     ]
     cfg = {"limit": 1, "fresh_hours": 36, "max_per_source": 2, "keywords": []}
-    selected = _select_items_for_category([fresh_item, stale_item], cfg, history, now)
+    selected, _ = _select_items_for_category([fresh_item, stale_item], cfg, history, now)
     assert [item["link"] for item in selected] == ["https://example.com/stale"]
 
 
@@ -182,5 +187,49 @@ def test_require_keywords_blocks_when_missing() -> None:
         "keywords": [],
         "require_keywords": True,
     }
-    selected = _select_items_for_category(items, cfg, [], now)
+    selected, _ = _select_items_for_category(items, cfg, [], now)
     assert selected == []
+
+
+def test_telegram_splitting_length() -> None:
+    long_teaser = "x" * 500
+    items = []
+    for idx in range(80):
+        items.append(
+            {
+                "title": f"Item {idx}",
+                "teaser": long_teaser,
+                "link": f"https://example.com/{idx}",
+            }
+        )
+    items_by_category = {
+        "world": items
+    }
+    chunks = build_message_chunks(items_by_category, date(2025, 1, 10), html=True)
+    assert len(chunks) >= 2
+    assert all(len(chunk) <= _MAX_MESSAGE_LEN for chunk in chunks)
+
+
+def test_html_strip_and_escape() -> None:
+    raw = "<p>Hello &amp; <img src='x'>World</p>"
+    stripped = _strip_html(raw)
+    assert "<" not in stripped
+    assert stripped == "Hello & World"
+    escaped = _escape_html(stripped)
+    assert escaped == "Hello &amp; World"
+
+
+def test_config_validation_messages(tmp_path: Path) -> None:
+    bad_path = tmp_path / "sources.yaml"
+    bad_path.write_text("not_categories: 1", encoding="utf-8")
+    with pytest.raises(ValueError) as excinfo:
+        load_config(bad_path)
+    assert "categories" in str(excinfo.value)
+
+    bad_path.write_text(
+        "categories:\n  bad:\n    limit: foo\n    sources: []\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as excinfo:
+        load_config(bad_path)
+    assert "no valid categories" in str(excinfo.value)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -22,6 +23,8 @@ _DEFAULT_SOURCES = Path("sources.yaml")
 _DEFAULT_KEYWORDS = Path("keywords.local.yaml")
 _DEFAULT_STATE = Path("state.json")
 _DEFAULT_FIXTURES = Path("tests/fixtures/sample_items.json")
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _parse_fixture_datetime(value: str) -> datetime | None:
@@ -127,14 +130,27 @@ def _select_items_for_category(
     cfg: dict[str, Any],
     history: list[dict[str, str]],
     now: datetime,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    stats = {
+        "fetched": len(items),
+        "after_keyword": 0,
+        "after_dedupe": 0,
+        "after_anti_repeat": 0,
+        "final": 0,
+    }
+
     keywords = cfg.get("keywords", [])
     require_keywords = cfg.get("require_keywords", False)
     if require_keywords and not keywords:
-        return []
+        return [], stats
+
     if keywords:
         items = filter_by_keywords(items, keywords)
+    stats["after_keyword"] = len(items)
+
     items = dedupe_items(items)
+    stats["after_dedupe"] = len(items)
+
     items = _sort_items(items)
 
     fresh_hours = cfg.get("fresh_hours", 36)
@@ -144,10 +160,11 @@ def _select_items_for_category(
     history_date = now.date()
     fresh_items = filter_items_against_history(fresh_items, history, history_date)
     stale_items = filter_items_against_history(stale_items, history, history_date)
+    stats["after_anti_repeat"] = len(fresh_items) + len(stale_items)
 
     limit = cfg.get("limit", 0)
     if not isinstance(limit, int) or limit <= 0:
-        return []
+        return [], stats
 
     max_per_source = cfg.get("max_per_source", limit)
     if not isinstance(max_per_source, int) or max_per_source <= 0:
@@ -160,43 +177,71 @@ def _select_items_for_category(
         backfill = _apply_source_cap(stale_items, max_per_source, counts, remaining)
         selected.extend(backfill)
 
-    return selected
+    stats["final"] = len(selected)
+    return selected, stats
 
 
 def build_items_by_category(
     config: dict[str, Any],
     history: list[dict[str, str]],
-) -> dict[str, list[dict[str, Any]]]:
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, dict[str, int]], dict[str, int]]:
     now = datetime.now(timezone.utc)
     result: dict[str, list[dict[str, Any]]] = {}
+    per_category_stats: dict[str, dict[str, int]] = {}
+    feed_stats = {"feeds_total": 0, "feeds_ok": 0, "feeds_failed": 0}
+
     for category, cfg in config["categories"].items():
-        items = fetch_category_items(category, cfg)
-        result[category] = _select_items_for_category(items, cfg, history, now)
-    return result
+        items, stats = fetch_category_items(category, cfg)
+        for key in feed_stats:
+            feed_stats[key] += stats.get(key, 0)
+        selected, cat_stats = _select_items_for_category(items, cfg, history, now)
+        result[category] = selected
+        per_category_stats[category] = cat_stats
+
+    return result, per_category_stats, feed_stats
 
 
 def build_items_from_fixtures(
     fixtures_path: Path,
     config: dict[str, Any],
     history: list[dict[str, str]],
-) -> dict[str, list[dict[str, Any]]]:
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, dict[str, int]]]:
     data = _load_fixtures(fixtures_path)
     now = datetime.now(timezone.utc)
     result: dict[str, list[dict[str, Any]]] = {}
+    per_category_stats: dict[str, dict[str, int]] = {}
     for category, cfg in config["categories"].items():
         items = data.get(category, [])
-        result[category] = _select_items_for_category(items, cfg, history, now)
-    return result
+        selected, cat_stats = _select_items_for_category(items, cfg, history, now)
+        result[category] = selected
+        per_category_stats[category] = cat_stats
+    return result, per_category_stats
 
 
-def _write_markdown(items_by_category: dict[str, list[dict[str, Any]]], as_of: date, output: str) -> None:
-    output_path = Path(output) if output else _default_output_path(as_of)
-    markdown = render_markdown(items_by_category, as_of)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(markdown, encoding="utf-8")
+def _write_markdown(items_by_category: dict[str, list[dict[str, Any]]], as_of: date, output: str) -> bool:
+    try:
+        output_path = Path(output) if output else _default_output_path(as_of)
+        markdown = render_markdown(items_by_category, as_of)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown, encoding="utf-8")
+        return True
+    except OSError as exc:
+        _LOGGER.warning("Failed to write markdown: %s", exc)
+        return False
+
+
+def _configure_logging() -> None:
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
 
 def main() -> int:
+    _configure_logging()
+
     parser = argparse.ArgumentParser(description="NewsDiet M2")
     parser.add_argument("--sources", default=str(_DEFAULT_SOURCES))
     parser.add_argument("--keywords", default=str(_DEFAULT_KEYWORDS))
@@ -217,25 +262,57 @@ def main() -> int:
     state_path = Path(args.state)
     fixtures_path = Path(args.fixtures)
 
-    config = load_config(sources_path, keywords_path)
+    try:
+        config = load_config(sources_path, keywords_path)
+    except ValueError as exc:
+        _LOGGER.error("Config error: %s", exc)
+        return 1
+
     history = load_history(state_path)
 
+    feed_stats = {"feeds_total": 0, "feeds_ok": 0, "feeds_failed": 0}
     if args.dry_run:
-        items_by_category = build_items_from_fixtures(fixtures_path, config, history)
+        items_by_category, per_category_stats = build_items_from_fixtures(
+            fixtures_path, config, history
+        )
     else:
-        items_by_category = build_items_by_category(config, history)
+        items_by_category, per_category_stats, feed_stats = build_items_by_category(
+            config, history
+        )
 
     today = datetime.now(timezone.utc).date()
 
+    markdown_written = False
     if args.markdown or args.markdown_only:
-        _write_markdown(items_by_category, today, args.output)
+        markdown_written = _write_markdown(items_by_category, today, args.output)
 
+    telegram_sent = False
     if not args.dry_run and not args.markdown_only:
-        sent = send_daily_digest(items_by_category, today)
-        if not sent:
-            print("Telegram send failed or skipped.")
+        telegram_sent = send_daily_digest(items_by_category, today)
+
+    if not args.dry_run:
         flat_items = [item for items in items_by_category.values() for item in items]
         update_state_file(state_path, flat_items, today)
+
+    _LOGGER.info("Run summary")
+    for category, stats in per_category_stats.items():
+        _LOGGER.info(
+            "Category '%s': fetched=%s after_keyword=%s after_dedupe=%s after_anti_repeat=%s final=%s",
+            category,
+            stats.get("fetched"),
+            stats.get("after_keyword"),
+            stats.get("after_dedupe"),
+            stats.get("after_anti_repeat"),
+            stats.get("final"),
+        )
+    _LOGGER.info(
+        "Feeds: total=%s ok=%s failed=%s",
+        feed_stats.get("feeds_total"),
+        feed_stats.get("feeds_ok"),
+        feed_stats.get("feeds_failed"),
+    )
+    _LOGGER.info("Telegram sent=%s", telegram_sent)
+    _LOGGER.info("Markdown written=%s", markdown_written)
 
     return 0
 

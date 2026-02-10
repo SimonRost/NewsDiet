@@ -2,7 +2,8 @@ name: Daily News Digest
 
 on:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 6 * * *"
+    - cron: "0 16 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +24,13 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Write keywords file
+        shell: bash
+        run: |
+          cat > keywords.local.yaml <<'EOF'
+          ${{ secrets.KEYWORDS_YAML }}
+          EOF
+
       - name: Compute date
         id: date
         run: echo "value=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
@@ -32,8 +40,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python -m src.main \
-            --output "output/${{ steps.date.outputs.value }} - Daily News Diet.md"
+          python -m src.main
 
       - name: Commit state file
         run: |
@@ -45,35 +52,4 @@ jobs:
             git push
           else
             echo "No state changes to commit"
-          fi
-
-      - name: Setup SSH for vault repo
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.OBSIDIAN_DEPLOY_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Checkout vault repo via SSH
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ secrets.OBSIDIAN_REPO }}
-          ssh-key: ${{ secrets.OBSIDIAN_DEPLOY_KEY }}
-          path: vault
-
-      - name: Copy markdown into vault
-        run: |
-          cp "output/${{ steps.date.outputs.value }} - Daily News Diet.md" "vault/"
-
-      - name: Commit digest to vault
-        run: |
-          cd vault
-          if git status --porcelain | grep -q "Daily News Diet.md"; then
-            git config user.name "github-actions"
-            git config user.email "github-actions@users.noreply.github.com"
-            git add "${{ steps.date.outputs.value }} - Daily News Diet.md"
-            git commit -m "chore: add daily digest"
-            git push
-          else
-            echo "No digest changes to commit"
           fi
