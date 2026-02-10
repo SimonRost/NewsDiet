@@ -1,10 +1,11 @@
-"""App entrypoint and M1 orchestration."""
+"""App entrypoint and M2 orchestration."""
 
 from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+import os
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,12 +14,12 @@ from .dedupe import dedupe_items
 from .feeds import fetch_category_items
 from .keyword_filter import filter_by_keywords
 from .render_md import render_markdown
+from .send_telegram import send_daily_digest
 from .state import filter_items_against_history, load_history, update_state_file
 
 
 _DEFAULT_SOURCES = Path("sources.yaml")
 _DEFAULT_KEYWORDS = Path("keywords.local.yaml")
-_DEFAULT_OUTPUT = Path("output.md")
 _DEFAULT_STATE = Path("state.json")
 _DEFAULT_FIXTURES = Path("tests/fixtures/sample_items.json")
 
@@ -61,33 +62,113 @@ def _load_fixtures(path: Path) -> dict[str, list[dict[str, Any]]]:
 
 
 def _sort_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    def sort_key(item: dict[str, Any]) -> tuple[int, datetime]:
+    def sort_key(item: dict[str, Any]) -> tuple[int, float]:
         published = item.get("published")
         if isinstance(published, datetime):
-            return (0, published)
-        return (1, datetime.min.replace(tzinfo=timezone.utc))
+            return (1, published.timestamp())
+        return (0, 0.0)
 
     return sorted(items, key=sort_key, reverse=True)
+
+
+def _default_output_path(as_of: date) -> Path:
+    filename = f"{as_of.strftime('%Y-%m-%d')} - Daily News Diet.md"
+    return Path("output") / filename
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"Env file not found: {path}")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+def _partition_fresh(
+    items: list[dict[str, Any]], cutoff: datetime
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    fresh: list[dict[str, Any]] = []
+    stale: list[dict[str, Any]] = []
+    for item in items:
+        published = item.get("published")
+        if isinstance(published, datetime) and published >= cutoff:
+            fresh.append(item)
+        else:
+            stale.append(item)
+    return fresh, stale
+
+
+def _apply_source_cap(
+    items: list[dict[str, Any]],
+    max_per_source: int,
+    counts: dict[str, int],
+    limit: int,
+) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for item in items:
+        if len(selected) >= limit:
+            break
+        source = item.get("source")
+        source_key = source if isinstance(source, str) and source else "unknown"
+        if counts.get(source_key, 0) >= max_per_source:
+            continue
+        counts[source_key] = counts.get(source_key, 0) + 1
+        selected.append(item)
+    return selected
+
+
+def _select_items_for_category(
+    items: list[dict[str, Any]],
+    cfg: dict[str, Any],
+    history: list[dict[str, str]],
+    now: datetime,
+) -> list[dict[str, Any]]:
+    keywords = cfg.get("keywords", [])
+    if keywords:
+        items = filter_by_keywords(items, keywords)
+    items = dedupe_items(items)
+    items = _sort_items(items)
+
+    fresh_hours = cfg.get("fresh_hours", 36)
+    cutoff = now - timedelta(hours=fresh_hours)
+    fresh_items, stale_items = _partition_fresh(items, cutoff)
+
+    history_date = now.date()
+    fresh_items = filter_items_against_history(fresh_items, history, history_date)
+    stale_items = filter_items_against_history(stale_items, history, history_date)
+
+    limit = cfg.get("limit", 0)
+    if not isinstance(limit, int) or limit <= 0:
+        return []
+
+    max_per_source = cfg.get("max_per_source", limit)
+    if not isinstance(max_per_source, int) or max_per_source <= 0:
+        max_per_source = limit
+
+    counts: dict[str, int] = {}
+    selected = _apply_source_cap(fresh_items, max_per_source, counts, limit)
+    if len(selected) < limit:
+        remaining = limit - len(selected)
+        backfill = _apply_source_cap(stale_items, max_per_source, counts, remaining)
+        selected.extend(backfill)
+
+    return selected
 
 
 def build_items_by_category(
     config: dict[str, Any],
     history: list[dict[str, str]],
 ) -> dict[str, list[dict[str, Any]]]:
-    today = datetime.now(timezone.utc).date()
+    now = datetime.now(timezone.utc)
     result: dict[str, list[dict[str, Any]]] = {}
     for category, cfg in config["categories"].items():
         items = fetch_category_items(category, cfg)
-        keywords = cfg.get("keywords", [])
-        if keywords:
-            items = filter_by_keywords(items, keywords)
-        items = dedupe_items(items)
-        items = _sort_items(items)
-        items = filter_items_against_history(items, history, today)
-        limit = cfg.get("limit", 0)
-        if isinstance(limit, int) and limit > 0:
-            items = items[:limit]
-        result[category] = items
+        result[category] = _select_items_for_category(items, cfg, history, now)
     return result
 
 
@@ -97,36 +178,39 @@ def build_items_from_fixtures(
     history: list[dict[str, str]],
 ) -> dict[str, list[dict[str, Any]]]:
     data = _load_fixtures(fixtures_path)
-    today = datetime.now(timezone.utc).date()
+    now = datetime.now(timezone.utc)
     result: dict[str, list[dict[str, Any]]] = {}
     for category, cfg in config["categories"].items():
         items = data.get(category, [])
-        keywords = cfg.get("keywords", [])
-        if keywords:
-            items = filter_by_keywords(items, keywords)
-        items = dedupe_items(items)
-        items = _sort_items(items)
-        items = filter_items_against_history(items, history, today)
-        limit = cfg.get("limit", 0)
-        if isinstance(limit, int) and limit > 0:
-            items = items[:limit]
-        result[category] = items
+        result[category] = _select_items_for_category(items, cfg, history, now)
     return result
 
 
+def _write_markdown(items_by_category: dict[str, list[dict[str, Any]]], as_of: date, output: str) -> None:
+    output_path = Path(output) if output else _default_output_path(as_of)
+    markdown = render_markdown(items_by_category, as_of)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(markdown, encoding="utf-8")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="NewsDiet M1")
+    parser = argparse.ArgumentParser(description="NewsDiet M2")
     parser.add_argument("--sources", default=str(_DEFAULT_SOURCES))
     parser.add_argument("--keywords", default=str(_DEFAULT_KEYWORDS))
-    parser.add_argument("--output", default=str(_DEFAULT_OUTPUT))
+    parser.add_argument("--output", default="")
     parser.add_argument("--state", default=str(_DEFAULT_STATE))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--fixtures", default=str(_DEFAULT_FIXTURES))
+    parser.add_argument("--env-file", default="")
+    parser.add_argument("--markdown", action="store_true")
+    parser.add_argument("--markdown-only", action="store_true")
     args = parser.parse_args()
+
+    if args.env_file:
+        _load_env_file(Path(args.env_file))
 
     sources_path = Path(args.sources)
     keywords_path = Path(args.keywords)
-    output_path = Path(args.output)
     state_path = Path(args.state)
     fixtures_path = Path(args.fixtures)
 
@@ -139,11 +223,14 @@ def main() -> int:
         items_by_category = build_items_by_category(config, history)
 
     today = datetime.now(timezone.utc).date()
-    markdown = render_markdown(items_by_category, today)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(markdown, encoding="utf-8")
 
-    if not args.dry_run:
+    if args.markdown or args.markdown_only:
+        _write_markdown(items_by_category, today, args.output)
+
+    if not args.dry_run and not args.markdown_only:
+        sent = send_daily_digest(items_by_category, today)
+        if not sent:
+            print("Telegram send failed or skipped.")
         flat_items = [item for items in items_by_category.values() for item in items]
         update_state_file(state_path, flat_items, today)
 

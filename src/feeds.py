@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import calendar
+import html
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 import feedparser
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_html(value: str) -> str:
+    if not value:
+        return ""
+    text = _TAG_RE.sub(" ", value)
+    text = html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def _parse_datetime(entry: dict[str, Any]) -> datetime | None:
@@ -25,8 +38,8 @@ def _normalize_entry(
     source_name: str | None,
     category: str,
 ) -> dict[str, Any]:
-    title = (entry.get("title") or "").strip()
-    teaser = (entry.get("summary") or entry.get("description") or "").strip()
+    title = _strip_html((entry.get("title") or "").strip())
+    teaser = _strip_html((entry.get("summary") or entry.get("description") or "").strip())
     link = (entry.get("link") or "").strip()
     published = _parse_datetime(entry)
     return {

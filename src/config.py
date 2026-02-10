@@ -26,8 +26,14 @@ def load_config(sources_path: Path, keywords_path: Path | None = None) -> dict[s
         if not isinstance(value, dict):
             continue
         limit = value.get("limit")
+        fresh_hours = value.get("fresh_hours", 36)
+        max_per_source = value.get("max_per_source", limit)
         sources = value.get("sources")
         if not isinstance(limit, int) or not isinstance(sources, list):
+            continue
+        if not isinstance(fresh_hours, int) or fresh_hours <= 0:
+            continue
+        if not isinstance(max_per_source, int) or max_per_source <= 0:
             continue
         valid_sources = []
         for source in sources:
@@ -41,6 +47,8 @@ def load_config(sources_path: Path, keywords_path: Path | None = None) -> dict[s
             valid_sources.append(source)
         config["categories"][key] = {
             "limit": limit,
+            "fresh_hours": fresh_hours,
+            "max_per_source": max_per_source,
             "sources": valid_sources,
             "keywords": [],
         }

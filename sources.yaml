@@ -1,6 +1,8 @@
 categories:
   world:
     limit: 3
+    fresh_hours: 36
+    max_per_source: 2
     sources:
       - type: rss
         name: spiegel_international
@@ -11,6 +13,8 @@ categories:
 
   germany_&_europe:
     limit: 5
+    fresh_hours: 36
+    max_per_source: 3
     sources:
       - type: rss
         name: spiegel_politik
@@ -21,6 +25,8 @@ categories:
 
   switzerland:
     limit: 3
+    fresh_hours: 36
+    max_per_source: 2
     sources:
       - type: rss
         name: nzz_ch
@@ -31,6 +37,8 @@ categories:
 
   eastern_switzerland:
     limit: 3
+    fresh_hours: 36
+    max_per_source: 2
     sources:
       - type: rss
         name: tagblatt_ostschweiz
@@ -38,6 +46,8 @@ categories:
 
   custom_keywords_for_eastern_switzerland:
     limit: 3
+    fresh_hours: 36
+    max_per_source: 2
     sources:
       - type: rss
         name: tagblatt_ostschweiz
@@ -48,6 +58,3 @@ categories:
       - type: rss
         name: tagblatt_kreuzlingen
         url: https://www.tagblatt.ch/ostschweiz/kreuzlingen.rss
-
-
-

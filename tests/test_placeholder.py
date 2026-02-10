@@ -1,8 +1,9 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from src.dedupe import dedupe_items, normalize_title
 from src.keyword_filter import filter_by_keywords
+from src.main import _select_items_for_category
 from src.state import filter_items_against_history, title_hash, update_state_file
 
 
@@ -62,3 +63,102 @@ def test_cross_day_anti_repeat(tmp_path: Path) -> None:
     ]
     filtered = filter_items_against_history(items, history, as_of)
     assert filtered == []
+
+
+def test_fresh_window_with_backfill() -> None:
+    now = datetime(2025, 1, 10, 12, 0, tzinfo=timezone.utc)
+    items = [
+        {
+            "title": "Fresh item",
+            "teaser": "",
+            "link": "https://example.com/fresh",
+            "published": now - timedelta(hours=2),
+            "source": "a",
+        },
+        {
+            "title": "Old item",
+            "teaser": "",
+            "link": "https://example.com/old",
+            "published": now - timedelta(hours=50),
+            "source": "b",
+        },
+        {
+            "title": "No date item",
+            "teaser": "",
+            "link": "https://example.com/nodate",
+            "published": None,
+            "source": "c",
+        },
+    ]
+    cfg = {"limit": 2, "fresh_hours": 24, "max_per_source": 2, "keywords": []}
+    selected = _select_items_for_category(items, cfg, [], now)
+    assert [item["link"] for item in selected] == [
+        "https://example.com/fresh",
+        "https://example.com/old",
+    ]
+
+
+def test_per_source_cap_fills_from_others() -> None:
+    now = datetime(2025, 1, 10, 12, 0, tzinfo=timezone.utc)
+    items = [
+        {
+            "title": "A1",
+            "teaser": "",
+            "link": "https://example.com/a1",
+            "published": now - timedelta(hours=1),
+            "source": "a",
+        },
+        {
+            "title": "A2",
+            "teaser": "",
+            "link": "https://example.com/a2",
+            "published": now - timedelta(hours=2),
+            "source": "a",
+        },
+        {
+            "title": "B1",
+            "teaser": "",
+            "link": "https://example.com/b1",
+            "published": now - timedelta(hours=3),
+            "source": "b",
+        },
+        {
+            "title": "C1",
+            "teaser": "",
+            "link": "https://example.com/c1",
+            "published": now - timedelta(hours=4),
+            "source": "c",
+        },
+    ]
+    cfg = {"limit": 3, "fresh_hours": 36, "max_per_source": 1, "keywords": []}
+    selected = _select_items_for_category(items, cfg, [], now)
+    sources = [item["source"] for item in selected]
+    assert sources.count("a") == 1
+    assert len(selected) == 3
+
+
+def test_anti_repeat_with_backfill() -> None:
+    now = datetime(2025, 1, 10, 12, 0, tzinfo=timezone.utc)
+    fresh_item = {
+        "title": "Fresh headline",
+        "teaser": "",
+        "link": "https://example.com/fresh",
+        "published": now - timedelta(hours=1),
+        "source": "a",
+    }
+    stale_item = {
+        "title": "Stale headline",
+        "teaser": "",
+        "link": "https://example.com/stale",
+        "published": now - timedelta(hours=60),
+        "source": "b",
+    }
+    history = [
+        {
+            "hash": title_hash("Fresh headline"),
+            "date": "2025-01-10",
+        }
+    ]
+    cfg = {"limit": 1, "fresh_hours": 36, "max_per_source": 2, "keywords": []}
+    selected = _select_items_for_category([fresh_item, stale_item], cfg, history, now)
+    assert [item["link"] for item in selected] == ["https://example.com/stale"]
