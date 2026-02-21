@@ -1,94 +1,6 @@
 {
   "history": [
     {
-      "hash": "c0f833f2449d742556435fd7afe48f13e741ee5ad42f531cde538bc5ea34e255",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "4f257170359856c03905e647136d73791de9a4989a17e0959275f8285278f157",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "085206112f2a2a0cc5e770173d707c0a7687121401c0c95a4f847be2ec02d2d3",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "104882d8f5c238fad6bc7ccb73d910bb183c4891199f4d94c61b030cf853fa8f",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "f74a5c686f4ff36cd4ce8ef4bc929b165492ba861198afb7b60d06a63ae45f6e",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "6d7123722d983780e769f5c84c227995739eccdfd0bcf4bc59c592c697377345",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "2c02629d9eea0108ee414797cc29a7387fd69e46f5cce9beee616337b1fe8fef",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "39b1142ee8073aa82d20e019b2ae3bfd41b9293190d1e0302de9b1b06c7ad5c4",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "0b7343f2736e8b9040d73f94e2ea5fce2049584ad8b739e6cb6e6f5f1497c8c3",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "f03e3d7272d59a5de8132e759dc435b621e4c0039c85ea2aaeb0223460d35a35",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "beb768dc7900c481d432a2632d0f02d677efe3906b0709210ebe16a85f34ea4c",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "3f8b3142bacef06dc52ce1852bd2fc7474613a0ae6e404f9fe1f2dafa0fba2da",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "de67b79814f6ab8fa955b147fbdfa8188e2715131e8904d78a12d017202a70cc",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "d9873fe2b8f096acbf530bbe4c9562e1fa71219370da8bc5275d4f16f6038013",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "564536ed4881088cb2a9c9adc73f2c00fb9f3b9ad34b4a4f699dc2bf1a4d3662",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "f47404e585d7f5c2cf592ddabab2d71274d48486324aef5bed0e89afd1fa8e4d",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "b21c1147cde1f57044d7ca8ad88eb0a2c501eba4033161721f5dc129dc6385e9",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "b5dc75a2e55b17b477c506314a64e63de973d99c6b0d149f313db37da6c56f63",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "a9e2361da89ec29926425bbf58cc5332f621c3b6c2aa85b5dc289187246916eb",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "7217d35ebaec83015d7894cba263cf88875f5d83568a2e958807a0a7547367e7",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "98e017d3a182ad0ccf6b06a82567d435ff5fe91621c46dcdd113aeb19fbeb7d9",
-      "date": "2026-02-16"
-    },
-    {
-      "hash": "fe8ebfc57b0084ec66ae5a383472e33451d95934074e34d119cd54702fa0b913",
-      "date": "2026-02-16"
-    },
-    {
       "hash": "887bb3252298cf8fb964767c678b63798a2438449b786af4b633c9a85d5109af",
       "date": "2026-02-17"
     },
@@ -439,6 +351,50 @@
     {
       "hash": "f8d0847179eed69fc07f3005e71472f54dac73ffed1731ba1671f7cf55cea903",
       "date": "2026-02-20"
+    },
+    {
+      "hash": "efcc0cd99549be46f5d9a3f35d832db09510ed90d117d792f83687ba8485ce40",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "e262eeb71e5627f0193ee648df4a691e4bc422f6416864ccdcdc4fa78ba234ea",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "0828a3eeeb7b9857abd33c0fefc1d2e51dda9a47baf314697c01e961cf900888",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "74ce2d6b3c493e507d4d1a88e99a8a4a901e956cb1a14e83a29197d3cfebe3f0",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "5736eece179af14e63f79e7c3fa7516ffd7acee28aaf39c6c32e5ce7c95ce1f9",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "5027677b29ef853d056a9ba65f4d682f158c32d52eac91c2ae497fe668ca2afe",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "1e354652b600adcb98b234be54a14cab28bcbc458384162ff4e6436cd90d31fc",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "e01c91908051a063ab6da6f8b4789ce29f65e96662f8bf3b0743fd42535353c7",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "4b7d456a6f11cc8cbcd9a57ab6ae567f041add2cd9b6ae76eaf927774e7b79b5",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "391bc7a1c337a33b68fb7941f1b5d0d12f58fba1dedf0cd81ba1145edb70ecf8",
+      "date": "2026-02-21"
+    },
+    {
+      "hash": "f3cc463c1cb9796bb8a87799ca052d1e79cf52fab50cfc8c49ece8614fd347e1",
+      "date": "2026-02-21"
     }
   ]
 }
